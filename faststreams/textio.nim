@@ -1,7 +1,8 @@
 import
   stew/ptrops,
   inputs, outputs, buffers, async_backend, multisync,
-  system/formatfloat
+  system/formatfloat,
+  strutils
 
 template matchingIntType(T: type int64): type = uint64
 template matchingIntType(T: type int32): type = uint32
@@ -111,6 +112,38 @@ template writeText*(s: OutputStream, str: string) =
 
 template writeText*(s: OutputStream, val: auto) =
   write s, $val
+
+const
+  defaultCharSet: set[char] = {'"', '\\', ' ', '='}
+
+template writeTextQuoted*(s: OutputStream, val: string, optional: bool = false, charSet = defaultCharSet) =
+  ## Write the string to the stream enclosed in quotes and the appropriate escape
+  ## notation.
+  ##
+  ## if ``optional`` == true, then the string is first searched for characters
+  ## that are indicate that quotation (and escaping) is needed. Those are passed
+  ## in with the ``charSet`` parameter list. The default charSet list is:
+  ##
+  ##     {'"', '\\', ' ', '='}
+  ##
+  ## If quotation is needed then:
+  ##
+  ## - the string is prefixed and suffixed with quote (") symbols.
+  ## - any quote symbols (") or backslashes (\) inside the string are prefixed
+  ##   with a backslash.
+  if optional:
+    if find(val, charSet) < 0:
+      write s, val
+      return
+  write s, '"'
+  for ch in val:
+    if ch in ['"', '\\']:
+      write s, '\\'
+    write s, ch
+  write s, '"'
+
+template writeTextQuoted*(s: OutputStream, val: auto, optional: bool = false, charSet = defaultCharSet) =
+  writeTextQuoted(s, $val, optional, charSet)
 
 proc writeHex*(s: OutputStream, bytes: openarray[byte]) =
   const hexChars = "0123456789abcdef"
